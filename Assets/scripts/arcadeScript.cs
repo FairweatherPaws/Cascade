@@ -81,6 +81,7 @@ public class arcadeScript : MonoBehaviour
                     {
                         movingAtTheMoment = true;
                     }
+                    go.GetComponent<blockScript>().setSpeed(cascadeCounter);
                 }
             }
             if (!movingAtTheMoment)
@@ -343,6 +344,8 @@ public class arcadeScript : MonoBehaviour
                 newBlock.GetComponent<blockScript>().Colour = colours[colID];
                 newBlock.GetComponent<blockScript>().setCoords(i, j);
                 newBlock.GetComponent<blockScript>().setGC(gameObject);
+                newBlock.GetComponent<Renderer>().material.color = colours[colID];
+
             }
         }
 
@@ -458,7 +461,7 @@ public class arcadeScript : MonoBehaviour
                     columnCOLs[i].RemoveAt(j - downShift);
                     if (blocksExist)
                     {
-                        columnGOs[i][j - downShift].transform.position = new Vector3(100, 100, 100);
+                        columnGOs[i][j - downShift].GetComponent<blockScript>().destroyMe();
                         scrapyard.Add(columnGOs[i][j - downShift]);
                         columnGOs[i].RemoveAt(j - downShift);
                     }
@@ -477,6 +480,7 @@ public class arcadeScript : MonoBehaviour
                             columnGOs[i][j - downShift].GetComponent<blockScript>().dropMeMore((float)downShift);
                         }
                         columnGOs[i][j - downShift].GetComponent<blockScript>().changeCoords(0, -downShift);
+                        columnGOs[i][j - downShift].GetComponent<blockScript>().setSpeed(cascadeCounter);
                     }
                 }
             }
@@ -527,19 +531,25 @@ public class arcadeScript : MonoBehaviour
                     if (scrapyard.Count > 0)
                     {
                         newBlock = scrapyard[0];
-                        newBlock.transform.position = new Vector3(i - boardWidth * 0.5f + horizontalAdjustment, 0, totalDrop + 1 + boardHeight * 0.5f + verticalAdjustment);
+                        newBlock.GetComponent<blockScript>().ColourID = colID;
+                        newBlock.GetComponent<blockScript>().Colour = colours[colID];
+                        newBlock.GetComponent<blockScript>().setCoords(i, boardHeight + difference + totalDrop - 1);
+                        newBlock.GetComponent<blockScript>().setGC(gameObject);
+                        newBlock.GetComponent<blockScript>().regenerateMe(new Vector3(i - boardWidth * 0.5f + horizontalAdjustment, 0, totalDrop + 1 + boardHeight * 0.5f + verticalAdjustment), 2 - difference);
                         scrapyard.RemoveAt(0);
                     }
                     else
                     {
                         newBlock = Instantiate(blockPrefab, new Vector3(i - boardWidth * 0.5f + horizontalAdjustment, 0, totalDrop + 1 + boardHeight * 0.5f + verticalAdjustment), Quaternion.identity) as GameObject;
+                        newBlock.GetComponent<blockScript>().ColourID = colID;
+                        newBlock.GetComponent<blockScript>().Colour = colours[colID];
+                        newBlock.GetComponent<Renderer>().material.color = colours[colID];
+                        newBlock.GetComponent<blockScript>().dropMe(2 - difference);
+                        newBlock.GetComponent<blockScript>().setCoords(i, boardHeight + difference + totalDrop - 1);
+                        newBlock.GetComponent<blockScript>().setGC(gameObject);
                     }
+                    newBlock.GetComponent<blockScript>().setSpeed(cascadeCounter);
                     columnGOs[i].Add(newBlock);
-                    newBlock.GetComponent<blockScript>().ColourID = colID;
-                    newBlock.GetComponent<blockScript>().Colour = colours[colID];
-                    newBlock.GetComponent<blockScript>().dropMe(2 - difference);
-                    newBlock.GetComponent<blockScript>().setCoords(i, boardHeight + difference + totalDrop - 1);
-                    newBlock.GetComponent<blockScript>().setGC(gameObject);
                 }
             }
 

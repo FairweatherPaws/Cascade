@@ -8,15 +8,16 @@ public class blockScript : MonoBehaviour
 
     private int colourID;
     private Color colour;
-    private bool drop, toBeDestroyed, toBeDropped;
-    private float dropDistance, travelledDistance, speed;
+    private bool drop, toBeDestroyed, toBeDropped, falling;
+    private float dropDistance, travelledDistance, speed, defaultSpeed;
     private Vector3 startPosition;
     public int x, y;
 
     // Use this for initialization
     void Start()
     {
-        speed = 7f;
+        defaultSpeed = 5f;
+        speed = defaultSpeed;
     }
 
     // Update is called once per frame
@@ -31,16 +32,42 @@ public class blockScript : MonoBehaviour
             if (fractionOfTravel > 1)
             {
                 transform.position = startPosition - new Vector3(0, 0, dropDistance);
+                dropDistance = 0;
                 drop = false;
+                falling = false;
             }
         }
+
+        if (toBeDestroyed)
+        {
+            transform.localScale *= 0.8f;
+        }
+    }
+
+    private IEnumerator Destroyed()
+    {
+        falling = true;
+        yield return new WaitForSeconds(0.3f);
+        transform.position = new Vector3(100, 100, 100);
+        toBeDestroyed = false;
+        transform.localScale = new Vector3(1, 1, 1);
+
+    }
+
+    private IEnumerator Regenerate(Vector3 v, float f)
+    {
+        yield return new WaitForSeconds(0.5f);
+        transform.position = v;
+        GetComponent<Renderer>().material.color = colour;
+        dropMe(f);
+
     }
 
     public void dropMe(float f)
     {
-            travelledDistance = 0;
-            startPosition = transform.position;
-            dropDistance = f;
+        startPosition = transform.position;
+        travelledDistance = 0;
+        dropDistance += f;
         drop = true;
     }
 
@@ -48,10 +75,21 @@ public class blockScript : MonoBehaviour
     {
         dropDistance += f;
     }
-   
+
+    public void setSpeed(int a)
+    {
+        speed = defaultSpeed + (5 + a) / 5;
+    }
+
     public void destroyMe()
     {
-        Destroy(gameObject);
+        toBeDestroyed = true;
+        StartCoroutine(Destroyed());
+    }
+
+    public void regenerateMe(Vector3 v, float f)
+    {
+        StartCoroutine(Regenerate(v, f));
     }
 
     public void setCoords(int a, int b)
@@ -76,10 +114,10 @@ public class blockScript : MonoBehaviour
                 return y;
         }
     }
-    
+
     public bool amIFalling()
     {
-        return drop;
+        return (drop || falling);
     }
 
     public void setGC(GameObject go)
@@ -108,7 +146,6 @@ public class blockScript : MonoBehaviour
         set
         {
             colour = value;
-            GetComponent<Renderer>().material.color = colour;
         }
     }
 }

@@ -6,12 +6,17 @@ public class arcadeScript : MonoBehaviour
 {
 
     // Prefabs:
-    public GameObject blockPrefab;
+    public GameObject blockPrefab, textPrefab;
 
 
     // Other Public GameObjects:
     public Camera mainCamera;
-    public GameObject scoreText, comboText;
+    public GameObject upperGUI, lowerGUI;
+
+    // Materials:
+    public Material standardBlock;
+    private Sprite customBlockSprite;
+    private Sprite[] allSprites;
 
     // Private GameObjects:
     private GameObject selectedBlock;
@@ -21,14 +26,18 @@ public class arcadeScript : MonoBehaviour
     private List<int>[] columnCOLs;
     private List<GameObject> scrapyard;
     private int[,] neighbourGrid;
+    private GameObject[] scoreboardObjects, scoreboardNumbers;
+    private Material[] blockIcons;
 
-    private Color[] colours = new Color[] { Color.yellow, Color.green, Color.red, Color.blue, Color.magenta, Color.cyan, Color.black };
+    private Color[] colours = new Color[] { Color.yellow, Color.green, Color.red, Color.blue, Color.white, Color.grey, new Color(1f, 0.6f, 0), Color.cyan };
     private int[] scores;
+    private string[] cascadeNames = new string[] { "CASCADE!", "DOUBLE CASCADE!", "TRIPLE CASCADE!", "QUADRUPLE CASCADE!", "SUPER CASCADE!", "MEGA CASCADE!", "ULTRA CASCADE!", "HYPER CASCADE!", "DIVINE CASCADE!", "ENDLESS CASCADE!" };
 
     // Gameplay variables:
 
     private int boardWidth, boardHeight, colourCount, eliminationThreshold;
-    private int defaultBoardWidth = 9, defaultBoardHeight = 16, defaultColourCount = 4, defaultEliminationThreshold = 5;
+    private int defaultBoardWidth = 9, defaultBoardHeight = 16, defaultColourCount = 4, defaultEliminationThreshold = 5, spawnShift = 5;
+    private float cameraGUIadjustment = 1.2f;
     private float horizontalAdjustment, verticalAdjustment;
     private float movementCheckTicker;
 
@@ -92,10 +101,11 @@ public class arcadeScript : MonoBehaviour
                 }
                 else
                 {
-                    for (int i = 0; i < scores.Length; i++)
+                    for (int i = 0; i < scores.Length - 1; i++)
                     {
                         PlayerPrefs.SetInt("Score" + i, scores[i]);
                     }
+                    PlayerPrefs.Save();
                 }
             }
         }
@@ -134,25 +144,33 @@ public class arcadeScript : MonoBehaviour
 
                 if (Physics.Raycast(ray, out hit, 100))
                 {
-                    if (hit.collider == null)
-                    {
-                        selectedBlock.GetComponent<Renderer>().material.color = colours[selectedBlock.GetComponent<blockScript>().ColourID];
-                        selectedBlock = null;
-                        readyToDelete = false;
-
-                    }
-                    else
+                    if (hit.collider.gameObject == selectedBlock)
                     {
                         cascadeCounter = 0;
                         scoreMultiplier = 1;
                         moreScore();
                         movementCheckTicker = 0;
+                        selectedBlock.GetComponent<Renderer>().material.color = selectedBlock.GetComponent<blockScript>().Colour;
                         playerRemoveBlock(selectedBlock.GetComponent<blockScript>().getCoord(0), selectedBlock.GetComponent<blockScript>().getCoord(1));
                         readyToDelete = false;
                         movingAtTheMoment = true;
-                        
 
                     }
+                    else
+                    {
+                        selectedBlock.GetComponent<Renderer>().material.color = colours[selectedBlock.GetComponent<blockScript>().ColourID];
+
+                        selectedBlock = hit.transform.gameObject;
+                        selectedBlock.GetComponent<Renderer>().material.color = Color.white;
+                        readyToDelete = true;
+
+                    }
+                }
+                else
+                {
+                    selectedBlock.GetComponent<Renderer>().material.color = colours[selectedBlock.GetComponent<blockScript>().ColourID];
+                    selectedBlock = null;
+                    readyToDelete = false;
                 }
             }
         }
@@ -193,7 +211,7 @@ public class arcadeScript : MonoBehaviour
                 playerRemoveBlock(selectedBlock.GetComponent<blockScript>().getCoord(0), selectedBlock.GetComponent<blockScript>().getCoord(1));
                 readyToDelete = false;
                 movingAtTheMoment = true;
-                
+
 
             }
         }
@@ -261,7 +279,7 @@ public class arcadeScript : MonoBehaviour
             eliminationThreshold = defaultEliminationThreshold;
         }
 
-        
+
     }
 
     // (re)generates the column structure of the gamespace:
@@ -273,7 +291,9 @@ public class arcadeScript : MonoBehaviour
         scrapyard = new List<GameObject>();
 
         scores = new int[colours.Length];
-        
+        scoreboardNumbers = new GameObject[8];
+        scoreboardObjects = new GameObject[8];
+
         for (int i = 0; i < boardWidth; i++)
         {
             columnGOs[i] = new List<GameObject>();
@@ -312,20 +332,58 @@ public class arcadeScript : MonoBehaviour
 
     // sets the camera size to encompass the playing area:
 
+    // horizontal bounds of camera: +- oSize * 9/16
+    // vertical bounds of camera: +- oSize
+
     private void initialiseCameraSize()
     {
-        int oSize = 0;
+        float oSize = boardWidth;
 
-        if (boardHeight / 2 >= boardWidth)
+        if (boardHeight * 9 > boardWidth * 16)
         {
-            oSize = boardHeight / 2 + 2;
+            oSize = boardHeight / 2;
         }
         else
         {
-            oSize = boardWidth + 1;
+            oSize = boardWidth;
         }
 
+
+        // allows for room for the GUI:
+        oSize *= cameraGUIadjustment;
+
+        // Upper GUI takes up 10% of screen's top real estate:
+        upperGUI.transform.position = new Vector3(0, 5, (2 * oSize) * 0.9f);
+        // ...and is adjust to fit the width of the screen:
+        upperGUI.transform.localScale = new Vector3(oSize * 9 / (16 * 5), 1, oSize / 5);
+
+        // The same is done for the lower GUI:
+        lowerGUI.transform.position = new Vector3(0, 5, (2 * oSize) * -0.9f);
+        lowerGUI.transform.localScale = new Vector3(oSize * 9 / (16 * 5), 1, oSize / 5);
+
         mainCamera.orthographicSize = oSize;
+
+        GameObject scoreSymbol;
+        GameObject scoreText;
+
+        for (int i = 1; i < 9; i++)
+        {
+            int j = i;
+            if (i == 8) j = 9;
+            scoreSymbol = Instantiate(blockPrefab, new Vector3((j - 5) * oSize * 9 / 80, 6, oSize - oSize / 15), Quaternion.identity) as GameObject;
+            scoreSymbol.GetComponent<blockScript>().ColourID = i - 1;
+            scoreSymbol.GetComponent<blockScript>().Colour = colours[i - 1];
+            scoreSymbol.GetComponent<blockScript>().setGC(gameObject);
+            scoreSymbol.GetComponent<Renderer>().material.color = colours[i - 1];
+            scoreSymbol.GetComponent<Renderer>().material.mainTextureOffset = new Vector2((i - 1) * 0.125f, 1);
+            scoreSymbol.transform.localScale = new Vector3(oSize / 15, oSize / 15, oSize / 15);
+            scoreboardObjects[i - 1] = scoreSymbol;
+
+            scoreText = Instantiate(textPrefab, new Vector3((j - 5) * oSize * 9 / 80, 6, oSize - 2 * oSize / 15), Quaternion.identity) as GameObject;
+            scoreboardNumbers[i - 1] = scoreText;
+            scoreText.transform.Rotate(new Vector3(90, 0, 0));
+            scoreText.transform.localScale = new Vector3(oSize / 100, oSize / 100, oSize / 100);
+        }
     }
 
     // (re)generates the actual playing field:
@@ -345,7 +403,7 @@ public class arcadeScript : MonoBehaviour
                 newBlock.GetComponent<blockScript>().setCoords(i, j);
                 newBlock.GetComponent<blockScript>().setGC(gameObject);
                 newBlock.GetComponent<Renderer>().material.color = colours[colID];
-
+                newBlock.GetComponent<Renderer>().material.mainTextureOffset = new Vector2(colID * 0.125f, 1);
             }
         }
 
@@ -485,7 +543,7 @@ public class arcadeScript : MonoBehaviour
                 }
             }
         }
-        
+
 
         repopulateBoard();
     }
@@ -535,20 +593,21 @@ public class arcadeScript : MonoBehaviour
                         newBlock.GetComponent<blockScript>().Colour = colours[colID];
                         newBlock.GetComponent<blockScript>().setCoords(i, boardHeight + difference + totalDrop - 1);
                         newBlock.GetComponent<blockScript>().setGC(gameObject);
-                        newBlock.GetComponent<blockScript>().regenerateMe(new Vector3(i - boardWidth * 0.5f + horizontalAdjustment, 0, totalDrop + 1 + boardHeight * 0.5f + verticalAdjustment), 2 - difference);
+                        newBlock.GetComponent<blockScript>().regenerateMe(new Vector3(i - boardWidth * 0.5f + horizontalAdjustment, 0, totalDrop + spawnShift + boardHeight * 0.5f + verticalAdjustment), 1 - difference + spawnShift);
                         scrapyard.RemoveAt(0);
                     }
                     else
                     {
-                        newBlock = Instantiate(blockPrefab, new Vector3(i - boardWidth * 0.5f + horizontalAdjustment, 0, totalDrop + 1 + boardHeight * 0.5f + verticalAdjustment), Quaternion.identity) as GameObject;
+                        newBlock = Instantiate(blockPrefab, new Vector3(i - boardWidth * 0.5f + horizontalAdjustment, 0, totalDrop + spawnShift + boardHeight * 0.5f + verticalAdjustment), Quaternion.identity) as GameObject;
                         newBlock.GetComponent<blockScript>().ColourID = colID;
                         newBlock.GetComponent<blockScript>().Colour = colours[colID];
                         newBlock.GetComponent<Renderer>().material.color = colours[colID];
-                        newBlock.GetComponent<blockScript>().dropMe(2 - difference);
+                        newBlock.GetComponent<blockScript>().dropMe(1 - difference + spawnShift);
                         newBlock.GetComponent<blockScript>().setCoords(i, boardHeight + difference + totalDrop - 1);
                         newBlock.GetComponent<blockScript>().setGC(gameObject);
                     }
                     newBlock.GetComponent<blockScript>().setSpeed(cascadeCounter);
+                    newBlock.GetComponent<Renderer>().material.mainTextureOffset = new Vector2(colID * 0.125f, 1);
                     columnGOs[i].Add(newBlock);
                 }
             }
@@ -560,32 +619,18 @@ public class arcadeScript : MonoBehaviour
 
     private void moreScore()
     {
-        if (cascadeCounter < 5)
+        scoreMultiplier = 1;
+        if (cascadeCounter > 0)
         {
-            comboText.GetComponent<TextMesh>().text = "Waves: " + cascadeCounter;
-            scoreMultiplier = 1;
+            scoreMultiplier += (int)(cascadeCounter / 5);
         }
-        else if (cascadeCounter < 10)
+        scoreboardNumbers[7].GetComponent<TextMesh>().text = cascadeCounter.ToString() + " (x" + scoreMultiplier.ToString() + ")";
+
+        for (int i = 0; i < 7; i++)
         {
-            comboText.GetComponent<TextMesh>().text = "CASCADE! x" + cascadeCounter;
-            scoreMultiplier = 2;
+            scoreboardNumbers[i].GetComponent<TextMesh>().text = scores[i].ToString();
         }
-        else if (cascadeCounter < 15)
-        {
-            comboText.GetComponent<TextMesh>().text = "DOUBLE CASCADE! x" + cascadeCounter;
-            scoreMultiplier = 3;
-        }
-        else if (cascadeCounter < 20)
-        {
-            comboText.GetComponent<TextMesh>().text = "TRIPLE CASCADE! x" + cascadeCounter;
-            scoreMultiplier = 4;
-        }
-        else
-        {
-            comboText.GetComponent<TextMesh>().text = "SUPER CASCADE! x" + cascadeCounter;
-            scoreMultiplier = 5;
-        }
-        scoreText.GetComponent<TextMesh>().text = "Scores: Y:" + scores[0] + " G:" + scores[1] + " R:" + scores[2] + " B:" + scores[3];
+
     }
 
     private void loadScores()
@@ -597,6 +642,7 @@ public class arcadeScript : MonoBehaviour
             if (PlayerPrefs.HasKey("Score" + i))
             {
                 scores[i] = PlayerPrefs.GetInt("Score" + i);
+                scoreboardNumbers[i].GetComponent<TextMesh>().text = scores[i].ToString();
             }
         }
     }

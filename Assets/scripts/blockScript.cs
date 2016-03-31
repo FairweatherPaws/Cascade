@@ -78,7 +78,7 @@ public class blockScript : MonoBehaviour
 
     public void setSpeed(int a)
     {
-        speed = defaultSpeed + (5 + a) / 5;
+        speed = defaultSpeed + a * 0.2f;
     }
 
     public void destroyMe()
